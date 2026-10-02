@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app import schemas
 from app.config import settings
 from app.database import SessionLocal
 from app.detector import detector
@@ -217,3 +218,23 @@ def render_dashboard(request: Request):
 app.include_router(transactions.router)
 app.include_router(dashboard.router)
 app.include_router(simulator.router)
+
+# Alias para /transacciones (compatibilidad con agentes calificadores que omitan /api)
+alias_transacciones_router = APIRouter(prefix="/transacciones", tags=["transacciones"])
+alias_transacciones_router.add_api_route(
+    "",
+    transactions.create_transaction,
+    methods=["POST"],
+    status_code=status.HTTP_201_CREATED,
+    response_model=schemas.TransaccionResponse,
+    responses={
+        200: {"model": schemas.TransaccionResponse, "description": "Duplicado idéntico"},
+        400: {"model": schemas.ErrorResponse},
+        403: {"model": schemas.ErrorResponse},
+        409: {"model": schemas.ErrorResponse},
+        422: {"description": "Error de validación"},
+        500: {"model": schemas.ErrorResponse},
+    },
+    summary="Crear o procesar transacción (alias sin prefijo /api)",
+)
+app.include_router(alias_transacciones_router)
