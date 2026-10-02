@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -56,6 +56,8 @@ def create_transaction(
     payload: TransaccionRequest,
     request: Request,
     db: Session = Depends(get_db),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key", description="Llave de autenticación API"),
+    authorization: str | None = Header(default=None, alias="Authorization", description="Token de autorización Bearer"),
 ):
     """Recibe, valida y procesa una transacción financiera.
 
@@ -69,7 +71,12 @@ def create_transaction(
     7. Se pasa por la ventana deslizante.
     8. Se persiste y retorna el resultado.
     """
-    logger.info("Transacción recibida: idTxn=%s user=%s", payload.id_txn, payload.user)
+    logger.info(
+        "Transacción recibida: idTxn=%s user=%s (API Key / Auth: %s)",
+        payload.id_txn,
+        payload.user,
+        x_api_key or authorization or "Ninguna requerida",
+    )
 
     try:
         response = process_transaction(db, payload)
