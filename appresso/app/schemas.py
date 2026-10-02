@@ -36,9 +36,16 @@ class TransaccionRequest(BaseModel):
     )
     value: Decimal = Field(gt=0, decimal_places=2)
     payment_method: str = Field(alias="paymentMethod")
-    hash: str = Field(min_length=64, max_length=64)
+    hash: str | None = Field(default=None, description="SHA-256 opcional. Si se omite, el servidor lo calcula.")
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("hash")
+    @classmethod
+    def validate_hash_len(cls, v: str | None) -> str | None:
+        if v is not None and len(v.strip()) != 64:
+            raise ValueError("El campo hash debe tener exactamente 64 caracteres hexadecimales")
+        return v.strip() if v else None
 
     @field_validator("date")
     @classmethod

@@ -180,7 +180,7 @@ def process_transaction(
     client_dt_utc = _parse_client_date(payload.date)
     _validate_clock_skew(client_dt_utc, received_at)
 
-    # 2. Recalcular hash y comparar
+    # 2. Recalcular hash y comparar (o asignar si fue omitido)
     expected_hash = compute_hash(
         id_txn=payload.id_txn,
         user=str(payload.user),
@@ -188,9 +188,12 @@ def process_transaction(
         value=payload.value,
         payment_method=payload.payment_method,
     )
-    if not safe_compare(expected_hash, payload.hash):
-        logger.warning("Hash inválido para idTxn=%s user=%s", payload.id_txn, payload.user)
-        raise HashInvalidError(f"Hash inválido para idTxn={payload.id_txn}")
+    if payload.hash is not None:
+        if not safe_compare(expected_hash, payload.hash):
+            logger.warning("Hash inválido para idTxn=%s user=%s", payload.id_txn, payload.user)
+            raise HashInvalidError(f"Hash inválido para idTxn={payload.id_txn}")
+    else:
+        payload.hash = expected_hash
 
     with _db_write_lock:
         # 3. Verificar idempotencia
