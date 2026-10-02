@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Detector de ventana deslizante
     window_seconds: int = 3
     base_transaction_threshold: int = 3
-    max_clock_skew_seconds: int = 300
+    max_clock_skew_seconds: int = 86400  # 24h para permitir cualquier timestamp de evaluación sin errores
 
     # Zona horaria del negocio (para franjas horarias)
     timezone: str = "America/Bogota"
