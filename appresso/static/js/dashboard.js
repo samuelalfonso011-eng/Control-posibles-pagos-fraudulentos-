@@ -370,13 +370,6 @@ window.inspectUserWindow = (userId, email) => {
   }
 };
 
-// Inicialización global
-document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
-  initPeriodSelector();
-  initUserSearch();
-  checkSystemHealth();
-  fetchDashboardStats('hoy');
 // 6. Registro e Intentos de Fraude en Tiempo Real
 let cachedRecentTransactions = [];
 let recentTxnFilter = 'all'; // 'all' o 'fraud_only'
