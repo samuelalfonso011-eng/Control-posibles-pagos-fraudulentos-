@@ -260,7 +260,9 @@ function initPeriodSelector() {
       buttons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const p = btn.getAttribute('data-period');
+      currentPeriod = p;
       fetchDashboardStats(p);
+      loadUsersHistory();
     });
   });
 }
@@ -268,31 +270,34 @@ function initPeriodSelector() {
 // 5. Historial y Directorio de Usuarios
 let cachedUsersDirectory = [];
 
-async function loadUsersHistory() {
+async function loadUsersHistory(highlightEmail = null) {
   const tbody = document.getElementById('users-directory-tbody');
   if (!tbody) return;
 
   try {
-    const res = await fetch('/api/dashboard/users-directory');
+    const res = await fetch(`/api/dashboard/users-directory?periodo=${currentPeriod}`);
     if (!res.ok) throw new Error('Error al cargar directorio de usuarios');
     const data = await res.json();
     cachedUsersDirectory = data.users || [];
-    renderUsersTable(cachedUsersDirectory);
+    renderUsersTable(cachedUsersDirectory, highlightEmail);
   } catch (err) {
     console.error('Error cargando historial de usuarios:', err);
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color: var(--text-muted); padding: 18px;">Error al cargar directorio de usuarios</td></tr>`;
   }
 }
 
-function renderUsersTable(users) {
+function renderUsersTable(users, highlightEmail = null) {
   const tbody = document.getElementById('users-directory-tbody');
   const countEl = document.getElementById('users-directory-count');
   if (!tbody) return;
 
-  if (countEl) countEl.textContent = `${users.length} usuarios monitoreados`;
+  if (countEl) {
+    const pLabel = currentPeriod === 'hoy' ? 'HOY' : (currentPeriod === 'semana' ? 'ÚLTIMOS 7 DÍAS' : 'ÚLTIMOS 30 DÍAS');
+    countEl.innerHTML = `<strong>${users.length}</strong> usuarios monitoreados · Métricas del periodo: <span style="color:#38bdf8; font-weight:700;">${pLabel}</span>`;
+  }
 
   if (users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color: var(--text-muted); padding: 20px;">No se encontraron usuarios</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color: var(--text-muted); padding: 20px;">No se encontraron usuarios en este periodo</td></tr>`;
     return;
   }
 
@@ -303,17 +308,25 @@ function renderUsersTable(users) {
     else if (u.riesgo === 'MEDIO') riskBadgeClass = 'badge-risk-medio';
 
     const statusBadgeClass = u.estado === 'ACTIVO' ? 'badge-trend up' : 'badge-trend down';
+    const isHighlighted = (highlightEmail && u.email.toLowerCase() === highlightEmail.toLowerCase());
+    const rowClass = isHighlighted ? 'row-updated-flash' : '';
 
     return `
-      <tr>
+      <tr class="${rowClass}">
         <td style="font-family: var(--font-mono); font-weight: 700; color: var(--text-muted);">#${u.id}</td>
         <td>
-          <div style="font-weight: 700;">${u.email}</div>
+          <div style="font-weight: 700; display:flex; align-items:center; gap:6px;">
+            ${u.email}
+            ${isHighlighted ? '<span class="badge-risk badge-risk-critico" style="font-size:9px;">ACTUALIZADO</span>' : ''}
+          </div>
           <div style="font-size: 11px; color: var(--text-secondary);">${u.nombre}</div>
         </td>
         <td><span class="${statusBadgeClass}">${u.estado}</span></td>
         <td><span class="badge-risk ${riskBadgeClass}">● ${u.riesgo}</span></td>
-        <td style="font-family: var(--font-mono); font-weight: 700;">${u.total_transacciones}</td>
+        <td>
+          <div style="font-family: var(--font-mono); font-weight: 700;">${u.total_transacciones}</div>
+          <div style="font-size: 10px; color: var(--text-muted);">${u.historico_total_txns} total</div>
+        </td>
         <td style="font-family: var(--font-mono); font-weight: 700; color: ${u.total_anomalias > 0 ? 'var(--status-critical)' : 'var(--text-secondary)'};">
           ${u.total_anomalias}
         </td>

@@ -1016,3 +1016,13 @@ footer.app-footer {
   color: #0b0f19;
 }
 
+@keyframes row-flash {
+  0% { background: rgba(14, 165, 233, 0.45); }
+  40% { background: rgba(239, 68, 68, 0.35); }
+  100% { background: transparent; }
+}
+
+.row-updated-flash td {
+  animation: row-flash 2.5s ease-out;
+}
+

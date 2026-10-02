@@ -100,16 +100,16 @@ def get_user_timeline(
 
 @router.get(
     "/users-directory",
-    summary="Obtener directorio completo de usuarios con métricas de riesgo",
+    summary="Obtener directorio de usuarios con metricas adaptadas al periodo",
 )
-def get_directory(db: Session = Depends(get_db)):
-    """Retorna la lista de todos los usuarios registrados con su volumen de transacciones,
-
-    total de anomalías, monto acumulado y nivel de riesgo asignado.
-    """
+def get_directory(
+    periodo: str = Query(default="todos", description="Filtro de periodo: hoy, semana, mes o todos"),
+    db: Session = Depends(get_db),
+):
+    """Retorna la lista de usuarios con metricas de volumen, anomalias y riesgo adaptadas al periodo."""
     try:
-        users = get_users_directory(db)
-        return {"success": True, "users": users}
+        users = get_users_directory(db, periodo=periodo)
+        return {"success": True, "periodo": periodo, "users": users}
     except Exception as exc:
         logger.error("Error al obtener directorio de usuarios: %s", exc, exc_info=True)
         raise HTTPException(

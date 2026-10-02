@@ -286,24 +286,44 @@ def get_timeline(db: Session, usuario_id: int) -> TimelineResponse:
     )
 
 
-def get_users_directory(db: Session) -> list[dict]:
-    """Retorna el listado completo de usuarios con métricas de transacciones y riesgo."""
+def get_users_directory(db: Session, periodo: str = "todos") -> list[dict]:
+    """Retorna el listado de usuarios con metricas adaptadas al periodo seleccionado."""
     usuarios = db.query(Usuario).order_by(Usuario.id).all()
+    
+    start_naive = None
+    end_naive = None
+    if periodo in ("hoy", "semana", "mes"):
+        start, end = _periodo_range(periodo)
+        start_naive = start.replace(tzinfo=None)
+        end_naive = end.replace(tzinfo=None)
+
     result = []
     for u in usuarios:
-        txns = u.transacciones
+        all_txns = u.transacciones
+        
+        # Filtrar por periodo si aplica
+        if start_naive and end_naive:
+            txns = [
+                t for t in all_txns
+                if start_naive <= (t.fecha_recepcion.replace(tzinfo=None) if t.fecha_recepcion.tzinfo else t.fecha_recepcion) <= end_naive
+            ]
+        else:
+            txns = all_txns
+
         total_txns = len(txns)
         total_monto = sum(t.valor for t in txns) if txns else Decimal("0.00")
         
-        # Conteo de anomalías
+        # Conteo de anomalias en el periodo
         txn_ids = [t.id for t in txns]
         anomalias_count = (
             db.query(Anomalia).filter(Anomalia.transaccion_id.in_(txn_ids)).count()
             if txn_ids else 0
         )
         
-        # Calcular nivel de riesgo
-        if u.estado.value == "BLOQUEADO" or anomalias_count >= 3:
+        # Calcular nivel de riesgo segun actividad
+        if u.estado.value == "BLOQUEADO":
+            riesgo = "CRITICO"
+        elif anomalias_count >= 3:
             riesgo = "CRITICO"
         elif anomalias_count >= 1:
             riesgo = "ALTO"
@@ -312,7 +332,7 @@ def get_users_directory(db: Session) -> list[dict]:
         else:
             riesgo = "BAJO"
             
-        last_txn = max(txns, key=lambda t: t.fecha_recepcion) if txns else None
+        last_txn = max(all_txns, key=lambda t: t.fecha_recepcion) if all_txns else None
         if last_txn:
             fr = last_txn.fecha_recepcion
             if fr.tzinfo is None:
@@ -331,5 +351,16 @@ def get_users_directory(db: Session) -> list[dict]:
             "monto_total": f"{total_monto:.2f}",
             "riesgo": riesgo,
             "ultima_actividad": ultima_actividad,
+            "historico_total_txns": len(all_txns),
         })
+        
+    # Ordenar priorizando cuentas con anomalias y actividad reciente
+    result.sort(
+        key=lambda x: (
+            1 if x["riesgo"] == "CRITICO" else (2 if x["riesgo"] == "ALTO" else (3 if x["riesgo"] == "MEDIO" else 4)),
+            -x["total_anomalias"],
+            -x["total_transacciones"],
+            x["ultima_actividad"]
+        )
+    )
     return result

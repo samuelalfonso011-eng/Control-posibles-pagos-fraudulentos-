@@ -224,7 +224,7 @@ async function simulateAttack() {
     btn.textContent = '⚡ Simular ataque / anomalía (b@b.com)';
     if (window.refreshDashboard) window.refreshDashboard();
     if (window.refreshSlidingWindow) window.refreshSlidingWindow();
-    if (window.loadUsersHistory) window.loadUsersHistory();
+    if (window.loadUsersHistory) window.loadUsersHistory('b@b.com');
   }
 }
 
@@ -282,7 +282,7 @@ async function simulateNormalTraffic() {
     btn.textContent = '🟢 Simular tráfico normal (c@c.com)';
     if (window.refreshDashboard) window.refreshDashboard();
     if (window.refreshSlidingWindow) window.refreshSlidingWindow();
-    if (window.loadUsersHistory) window.loadUsersHistory();
+    if (window.loadUsersHistory) window.loadUsersHistory('c@c.com');
   }
 }
 
