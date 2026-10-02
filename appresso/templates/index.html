@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VELUM — Sistema de Detección de Fraude en Tiempo Real</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <!-- Chart.js servido localmente desde static/vendor/ para funcionamiento 100% offline -->
+  <script src="/static/vendor/chart.umd.js"></script>
+</head>
+<body>
+
+  <!-- Header principal -->
+  <header class="app-header">
+    <div class="container header-content">
+      <div class="brand-wrapper">
+        <div class="brand-logo">V</div>
+        <div>
+          <h1 class="brand-title">VELUM</h1>
+          <p class="brand-subtitle">Sistema de detección de fraude en tiempo real · Sliding Window</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Indicador de Sistema Operativo con pulso real basado en /health -->
+        <div id="system-health-badge" class="status-badge">
+          <span class="status-pulse"></span>
+          <span id="system-health-text">Verificando...</span>
+        </div>
+
+        <!-- Selector de periodo -->
+        <div class="period-selector">
+          <button class="period-btn active" data-period="hoy">Hoy</button>
+          <button class="period-btn" data-period="semana">Semana</button>
+          <button class="period-btn" data-period="mes">Mes</button>
+        </div>
+
+        <!-- Selector de tema claro/oscuro -->
+        <button id="btn-toggle-theme" class="theme-toggle-btn" title="Alternar tema claro/oscuro">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Sección de KPIs (5 Métricas clave) -->
+    <section class="kpi-grid">
+      <!-- KPI 1: Total Transacciones -->
+      <div class="kpi-card blue">
+        <div class="kpi-header">
+          <span>Total Transacciones</span>
+          <span>💳</span>
+        </div>
+        <div id="kpi-total-txns" class="kpi-value">0</div>
+        <div class="kpi-footer">
+          <span id="kpi-trend-badge" class="badge-trend">0% vs periodo anterior</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Anomalías detectadas -->
+      <div class="kpi-card rose">
+        <div class="kpi-header">
+          <span>Anomalías Detectadas</span>
+          <span>🚨</span>
+        </div>
+        <div id="kpi-total-anomalies" class="kpi-value">0</div>
+        <div class="kpi-footer">
+          <span>Regla Sliding Window</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: % de anomalías -->
+      <div class="kpi-card amber">
+        <div class="kpi-header">
+          <span>Tasa de Anomalía</span>
+          <span>📊</span>
+        </div>
+        <div id="kpi-anomaly-rate" class="kpi-value">0.0%</div>
+        <div class="kpi-footer">
+          <span>% del volumen total</span>
+        </div>
+      </div>
+
+      <!-- KPI 4: Monto en riesgo -->
+      <div class="kpi-card cyan">
+        <div class="kpi-header">
+          <span>Monto en Riesgo</span>
+          <span>💰</span>
+        </div>
+        <div id="kpi-risk-amount" class="kpi-value">$ 0.00</div>
+        <div class="kpi-footer">
+          <span>Total COP sospechoso</span>
+        </div>
+      </div>
+
+      <!-- KPI 5: Usuarios recurrentes -->
+      <div class="kpi-card purple">
+        <div class="kpi-header">
+          <span>Usuarios Recurrentes</span>
+          <span>👥</span>
+        </div>
+        <div id="kpi-recurring-users" class="kpi-value">0</div>
+        <div class="kpi-footer">
+          <span>Con 2+ anomalías en el periodo</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección de Gráficos (2x2 Grid) -->
+    <section class="charts-grid">
+      <!-- Gráfico 1: Línea (Transacciones vs Anomalías) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">Transacciones vs Anomalías por Hora</h3>
+            <p class="chart-subtitle">Volumen total y eventos sospechosos en hora de Bogotá</p>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-transactions-hourly"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico 2: Barras (Anomalías por hora con pico) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">Distribución Horaria de Anomalías</h3>
+            <p class="chart-subtitle">Resalta la hora pico de actividad de fraude</p>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-hourly-anomalies"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico 3: Dona (Severidad) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">Distribución por Severidad</h3>
+            <p class="chart-subtitle">Bajo, Medio, Alto y Crítico según franja horaria</p>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-severity"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico 4: Dona (Método de Pago) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3 class="chart-title">Distribución por Método de Pago</h3>
+            <p class="chart-subtitle">Tarjeta, PSE, Transferencia y Otro</p>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-payment-method"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Directorio e Historial de Usuarios Registrados -->
+    <section class="user-directory-card">
+      <div class="user-directory-header">
+        <div>
+          <h2 class="section-title" style="margin-bottom: 4px;">
+            Directorio y Perfil de Riesgo de Usuarios
+            <span class="tag">Auditoría en Tiempo Real</span>
+          </h2>
+          <p style="font-size: 13px; color: var(--text-secondary);" id="users-directory-count">
+            Cargando entidades monitoreadas...
+          </p>
+        </div>
+
+        <div class="user-search-wrapper">
+          <span class="user-search-icon">🔍</span>
+          <input type="text" id="user-search-input" class="user-search-input" placeholder="Buscar por email, nombre o estado...">
+        </div>
+      </div>
+
+      <div class="users-table-container">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Usuario / Titular</th>
+              <th>Estado</th>
+              <th>Nivel de Riesgo</th>
+              <th>Transacciones</th>
+              <th>Anomalías</th>
+              <th>Monto Acumulado</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="users-directory-tbody">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">
+                Cargando directorio de usuarios...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Visualizador de Ventana Deslizante (Sliding Window Visualizer) -->
+    <h2 class="section-title" style="margin-top: 36px;">
+      Visualizador de Ventana Deslizante (Sliding Window)
+      <span class="tag">Demostración Académica [t - 3s, t]</span>
+    </h2>
+
+    <div class="visualizer-card">
+      <div class="visualizer-controls">
+        <div class="user-selector-group">
+          <span style="font-size: 13px; color: var(--text-secondary); margin-right: 6px;">Usuario activo:</span>
+          <button class="user-quick-btn active" data-email="b@b.com">b@b.com (Ataque)</button>
+          <button class="user-quick-btn" data-email="c@c.com">c@c.com (Normal)</button>
+          <button class="user-quick-btn" data-email="aa@aa.com">aa@aa.com</button>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted);">
+          Parámetros: Ventana = <strong>3 segundos</strong> | Umbral = <strong>≥ 3 transacciones</strong>
+        </div>
+      </div>
+
+      <!-- Pista interactiva de línea de tiempo -->
+      <div class="timeline-container">
+        <div id="timeline-track" class="timeline-track">
+          <div style="margin: auto; color: var(--text-muted); font-size: 13px;">
+            Cargando visualización de ventana deslizante...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulador Interactivo de Fraude y Tráfico -->
+    <h2 class="section-title" style="margin-top: 36px;">
+      Simulador de Tráfico y Auditoría de Integridad
+      <span class="tag">WebCrypto SHA-256</span>
+    </h2>
+
+    <!-- Monitor en Vivo del Flujo de Tokens (<3s) -->
+    <div class="token-flow-panel">
+      <div class="token-flow-header">
+        <div class="token-flow-title">
+          <span>📡 Flujo de Tokens en Tiempo Real (Secuencia de Ráfaga)</span>
+        </div>
+        <span id="window-status-badge" class="window-badge window-inactive">Ventana: Inactiva</span>
+      </div>
+
+      <!-- Barra de progreso acumulada -->
+      <div class="token-progress-container">
+        <div id="token-progress-bar" class="progress-fill"></div>
+      </div>
+
+      <!-- 3 Tarjetas de Tokens -->
+      <div class="token-cards-row">
+        <!-- Token 1 -->
+        <div id="token-card-1" class="token-box token-waiting">
+          <div id="token-status-1" class="token-icon">⏳</div>
+          <div class="token-box-header">1er Token / Transacción</div>
+          <div id="token-time-1" class="token-timestamp">--:--:--.---</div>
+          <div id="token-delta-1" class="token-delta">Esperando disparo...</div>
+        </div>
+
+        <!-- Token 2 -->
+        <div id="token-card-2" class="token-box token-waiting">
+          <div id="token-status-2" class="token-icon">⏳</div>
+          <div class="token-box-header">2do Token / Transacción</div>
+          <div id="token-time-2" class="token-timestamp">--:--:--.---</div>
+          <div id="token-delta-2" class="token-delta">Esperando disparo...</div>
+        </div>
+
+        <!-- Token 3 -->
+        <div id="token-card-3" class="token-box token-waiting">
+          <div id="token-status-3" class="token-icon">⏳</div>
+          <div class="token-box-header">3er Token / Disparo Umbral</div>
+          <div id="token-time-3" class="token-timestamp">--:--:--.---</div>
+          <div id="token-delta-3" class="token-delta">Umbral (≥3 txns en &lt;3s)</div>
+        </div>
+      </div>
+
+      <!-- Alarma de Fraude Emergente -->
+      <div id="token-alarm-box" class="token-alarm-banner">
+        <div class="alarm-icon">🚨</div>
+        <div class="alarm-content">
+          <div class="alarm-title">¡ALARMA DE FRAUDE ACTIVADA!</div>
+          <div class="alarm-detail">
+            Se detectaron 3 tokens en menos de 3.0 segundos para el usuario.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Banners de Alerta Dinámicos -->
+    <div id="banner-anomaly-alert" class="anomaly-alert-banner"></div>
+    <div id="banner-normal-alert" class="normal-alert-banner"></div>
+
+    <div class="simulator-grid" style="margin-top: 16px;">
+      <!-- Panel de Pruebas de Ataque y Normal -->
+      <div class="sim-card">
+        <div>
+          <div class="sim-header">
+            <h3 class="sim-title">Generador de Escenarios</h3>
+            <span class="sim-badge danger">Simulación en vivo</span>
+          </div>
+          <p class="sim-desc">
+            Dispara transacciones a <code>POST /api/transacciones</code> calculando el hash canónico 
+            con <code>crypto.subtle.digest</code> en el navegador. Demuestra la reacción inmediata del detector.
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="btn-sim-attack" class="sim-action-btn btn-attack">
+            ⚡ Simular ataque / anomalía (b@b.com)
+          </button>
+          <button id="btn-sim-normal" class="sim-action-btn btn-normal">
+            🟢 Simular tráfico normal (c@c.com)
+          </button>
+          <button id="btn-run-autotest" class="sim-action-btn btn-test">
+            🧪 Ejecutar autotest de Hash (WebCrypto)
+          </button>
+          <button id="btn-reset-sim" class="sim-action-btn btn-reset">
+            🧹 Restablecer datos de simulación
+          </button>
+        </div>
+      </div>
+
+      <!-- Consola de Telemetría en Vivo -->
+      <div class="sim-card">
+        <div class="sim-header">
+          <h3 class="sim-title">Registro de Telemetría en Tiempo Real</h3>
+          <span class="sim-badge info">Terminal REST</span>
+        </div>
+        <p class="sim-desc">
+          Muestra respuestas del backend, estado de integridad SHA-256, conteos de la ventana deslizante y severidades asignadas.
+        </p>
+        <div id="sim-log-terminal" class="sim-log-terminal">
+          <div class="log-entry">
+            <span class="log-time">[Sistema]</span>
+            <span class="log-status approved">Terminal listo. Selecciona una acción para comenzar.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="app-footer">
+    <div class="container">
+      <p><strong>VELUM</strong> — Sistema de detección de fraude en tiempo real con Sliding Window · Python 3 / FastAPI / SQLAlchemy / Chart.js</p>
+    </div>
+  </footer>
+
+  <!-- Scripts de la aplicación -->
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/sliding-window.js"></script>
+  <script src="/static/js/simulator.js"></script>
+</body>
+</html>

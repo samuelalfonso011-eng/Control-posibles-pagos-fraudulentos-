@@ -1,0 +1,62 @@
+[
+  {
+    "description": "Caso estándar con tarjeta",
+    "input": {
+      "idTxn": "TXN-1001",
+      "user": "Carlos.Perez@Banco.com",
+      "date": "2026-09-23T10:30:01.120",
+      "value": "50000.00",
+      "paymentMethod": "Tarjeta"
+    },
+    "canonicalString": "TXN-1001|carlos.perez@banco.com|2026-09-23T10:30:01.120|50000.00|Tarjeta",
+    "expectedHash": "140de15993fd6402233ac09afb7dc24ffa855d7891c3a1b23bb3198a69e69a62"
+  },
+  {
+    "description": "Caso con PSE y email con espacios para normalizar",
+    "input": {
+      "idTxn": "TXN-1002",
+      "user": "  Ana.Gomez@correo.com  ",
+      "date": "2026-09-23T14:15:22.500",
+      "value": "125000.50",
+      "paymentMethod": "PSE"
+    },
+    "canonicalString": "TXN-1002|ana.gomez@correo.com|2026-09-23T14:15:22.500|125000.50|PSE",
+    "expectedHash": "71acaea5476279057c55e73d97fd5a15ffe1948223363a77bb6e148d8eae257b"
+  },
+  {
+    "description": "Caso de transferencia nocturna",
+    "input": {
+      "idTxn": "TXN-1003",
+      "user": "b@b.com",
+      "date": "2026-09-23T23:59:59.999",
+      "value": "3500.00",
+      "paymentMethod": "Transferencia"
+    },
+    "canonicalString": "TXN-1003|b@b.com|2026-09-23T23:59:59.999|3500.00|Transferencia",
+    "expectedHash": "f05ee1a9e69e496bb9a3ade1b219e4e56706ff117258b602e05aa35433c4ca91"
+  },
+  {
+    "description": "Caso con método Otro y valor con decimal exacto",
+    "input": {
+      "idTxn": "TXN-1004",
+      "user": "c@c.com",
+      "date": "2026-09-23T05:00:00.000",
+      "value": "999999.99",
+      "paymentMethod": "Otro"
+    },
+    "canonicalString": "TXN-1004|c@c.com|2026-09-23T05:00:00.000|999999.99|Otro",
+    "expectedHash": "4068a2b4fffa88018b644c2fff5acf57fb2408c2f51a672d76087b899df3f73c"
+  },
+  {
+    "description": "Caso con monto bajo y milisegundos en cero",
+    "input": {
+      "idTxn": "TXN-1005",
+      "user": "fraude_tester@domain.co",
+      "date": "2026-09-23T12:00:00.000",
+      "value": "10.00",
+      "paymentMethod": "Tarjeta"
+    },
+    "canonicalString": "TXN-1005|fraude_tester@domain.co|2026-09-23T12:00:00.000|10.00|Tarjeta",
+    "expectedHash": "a584ddc2d5f8d2f7f80e37d283a11c2ca4c8e4156737aba1eb87ef4f0ec13b94"
+  }
+]
