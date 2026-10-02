@@ -16,10 +16,44 @@ async function resolveUserId(email) {
       if (found) return found.id;
     }
   } catch (err) {
-    console.error('Error resolviendo usuario:', err);
+    console.error('Error resolviendo usuario en simulador:', err);
+  }
+
+  try {
+    const res2 = await fetch('/api/dashboard/users-directory?periodo=todos');
+    if (res2.ok) {
+      const data2 = await res2.json();
+      const found2 = (data2.users || []).find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (found2) return found2.id;
+    }
+  } catch (err2) {
+    console.error('Error resolviendo usuario en directorio general:', err2);
   }
   return null;
 }
+
+window.loadTimeline = async function(userId, email) {
+  activeUserEmail = email;
+  activeUserId = userId;
+  const trackEl = document.getElementById('timeline-track');
+  if (!trackEl) return;
+
+  document.querySelectorAll('.user-quick-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-email') === email);
+  });
+
+  try {
+    const res = await fetch(`/api/dashboard/timeline-sliding-window/${userId}`);
+    if (!res.ok) {
+      trackEl.innerHTML = `<div style="margin: auto; color: var(--text-muted); font-size:13px; text-align:center; padding:20px;">Sin transacciones para <strong>${email}</strong></div>`;
+      return;
+    }
+    const data = await res.json();
+    renderTimelineNodes(data.entries, trackEl);
+  } catch (err) {
+    console.error('Error cargando timeline por ID:', err);
+  }
+};
 
 async function loadUserTimeline(email = activeUserEmail) {
   activeUserEmail = email;
