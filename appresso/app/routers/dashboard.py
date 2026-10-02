@@ -15,7 +15,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Usuario
 from app.schemas import DashboardStatsResponse, ErrorResponse, TimelineResponse
-from app.services.dashboard_service import get_dashboard_stats, get_timeline, get_users_directory
+from app.services.dashboard_service import (
+    get_dashboard_stats,
+    get_recent_transactions,
+    get_timeline,
+    get_users_directory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +117,23 @@ def get_directory(
         return {"success": True, "periodo": periodo, "users": users}
     except Exception as exc:
         logger.error("Error al obtener directorio de usuarios: %s", exc, exc_info=True)
+@router.get(
+    "/recent-transactions",
+    summary="Obtener transacciones mas recientes y registro de intentos de fraude",
+)
+def get_recent(
+    limit: int = Query(default=50, ge=1, le=200, description="Numero maximo de transacciones a retornar"),
+    db: Session = Depends(get_db),
+):
+    """Retorna el flujo cronologico de transacciones recientes detallando cuales fueron sospechosas/fraude."""
+    try:
+        txns = get_recent_transactions(db, limit=limit)
+        return {"success": True, "count": len(txns), "transactions": txns}
+    except Exception as exc:
+        logger.error("Error al obtener transacciones recientes: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"success": False, "error": {"code": "INTERNAL_ERROR", "message": str(exc)}},
         )
+
 

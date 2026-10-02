@@ -205,6 +205,49 @@
       </div>
     </section>
 
+    <!-- Registro e Intentos de Fraude en Tiempo Real (Feed de Transacciones) -->
+    <section class="user-directory-card" style="margin-top: 24px;">
+      <div class="user-directory-header">
+        <div>
+          <h2 class="section-title" style="margin-bottom: 4px;">
+            Registro e Intentos de Fraude en Tiempo Real
+            <span class="tag">Feed de Auditoría de Transacciones</span>
+          </h2>
+          <p style="font-size: 13px; color: var(--text-secondary);" id="recent-transactions-count">
+            Cargando transacciones recientes...
+          </p>
+        </div>
+
+        <div class="period-selector">
+          <button id="btn-filter-all-txns" class="period-btn active">Todas las transacciones</button>
+          <button id="btn-filter-fraud-txns" class="period-btn" style="color: #f87171;">🚨 Solo Intentos de Fraude</button>
+        </div>
+      </div>
+
+      <div class="users-table-container">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>ID Txn</th>
+              <th>Fecha y Hora (Bogotá)</th>
+              <th>Usuario</th>
+              <th>Valor (COP)</th>
+              <th>Método</th>
+              <th>Estado</th>
+              <th>Detección / Severidad</th>
+            </tr>
+          </thead>
+          <tbody id="recent-transactions-tbody">
+            <tr>
+              <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 18px;">
+                Cargando registro de transacciones...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- Visualizador de Ventana Deslizante (Sliding Window Visualizer) -->
     <h2 class="section-title" style="margin-top: 36px;">
       Visualizador de Ventana Deslizante (Sliding Window)

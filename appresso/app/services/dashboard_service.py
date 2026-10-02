@@ -364,3 +364,33 @@ def get_users_directory(db: Session, periodo: str = "todos") -> list[dict]:
         )
     )
     return result
+
+
+def get_recent_transactions(db: Session, limit: int = 50) -> list[dict]:
+    """Retorna las transacciones mas recientes con su clasificacion de fraude y detalles."""
+    txns = db.query(Transaccion).order_by(Transaccion.id.desc()).limit(limit).all()
+    result = []
+    for t in txns:
+        fr = t.fecha_recepcion
+        if fr.tzinfo is None:
+            fr = fr.replace(tzinfo=timezone.utc)
+        fecha_str = fr.astimezone(BOGOTA_TZ).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+        anomalia = db.query(Anomalia).filter(Anomalia.transaccion_id == t.id).first()
+
+        result.append({
+            "id": t.id,
+            "idTxn": t.id_txn,
+            "email": t.usuario.email if t.usuario else "Desconocido",
+            "fecha": fecha_str,
+            "valor": f"{t.valor:.2f}",
+            "metodo_pago": t.metodo_pago,
+            "estado": t.estado.value,
+            "es_anomalia": anomalia is not None or t.estado.value == "SOSPECHOSA",
+            "anomalia_tipo": anomalia.tipo.value if anomalia else ("POSIBLE_FRAUDE" if t.estado.value == "SOSPECHOSA" else None),
+            "severidad": anomalia.nivel.value if anomalia else None,
+            "regla": anomalia.regla_detectada if anomalia else None,
+            "hash_abrev": f"{t.hash[:8]}...{t.hash[-8:]}" if t.hash else "",
+        })
+    return result
+

@@ -377,7 +377,118 @@ document.addEventListener('DOMContentLoaded', () => {
   initUserSearch();
   checkSystemHealth();
   fetchDashboardStats('hoy');
+// 6. Registro e Intentos de Fraude en Tiempo Real
+let cachedRecentTransactions = [];
+let recentTxnFilter = 'all'; // 'all' o 'fraud_only'
+
+async function loadRecentTransactions() {
+  const tbody = document.getElementById('recent-transactions-tbody');
+  if (!tbody) return;
+
+  try {
+    const res = await fetch('/api/dashboard/recent-transactions?limit=40');
+    if (!res.ok) throw new Error('Error al cargar transacciones recientes');
+    const data = await res.json();
+    cachedRecentTransactions = data.transactions || [];
+    renderRecentTransactionsTable();
+  } catch (err) {
+    console.error('Error cargando transacciones recientes:', err);
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 18px;">Error al cargar transacciones recientes</td></tr>`;
+  }
+}
+
+function renderRecentTransactionsTable() {
+  const tbody = document.getElementById('recent-transactions-tbody');
+  const countEl = document.getElementById('recent-transactions-count');
+  if (!tbody) return;
+
+  let list = cachedRecentTransactions;
+  if (recentTxnFilter === 'fraud_only') {
+    list = list.filter(t => t.es_anomalia || t.estado === 'SOSPECHOSA' || t.estado === 'RECHAZADA');
+  }
+
+  if (countEl) {
+    const totalFraud = cachedRecentTransactions.filter(t => t.es_anomalia || t.estado === 'SOSPECHOSA').length;
+    countEl.innerHTML = `Mostrando <strong>${list.length}</strong> transacciones recientes · <span style="color:#ef4444; font-weight:700;">🚨 ${totalFraud} intentos de fraude detectados</span>`;
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 22px;">No hay transacciones registradas</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(t => {
+    const isFraud = t.es_anomalia || t.estado === 'SOSPECHOSA';
+    const isRej = t.estado === 'RECHAZADA';
+    
+    let statusBadge = '<span class="badge-trend up">✅ Aprobada</span>';
+    let rowStyle = '';
+    
+    if (isFraud) {
+      statusBadge = '<span class="badge-risk badge-risk-critico">🚨 SOSPECHOSA</span>';
+      rowStyle = 'background: rgba(239, 68, 68, 0.08);';
+    } else if (isRej) {
+      statusBadge = '<span class="badge-risk badge-risk-critico">⛔ RECHAZADA</span>';
+      rowStyle = 'background: rgba(239, 68, 68, 0.04);';
+    }
+
+    let fraudDetail = '<span style="color:var(--text-muted); font-size:11px;">Flujo legítimo</span>';
+    if (isFraud) {
+      const sevLabel = t.severidad ? ` · ${t.severidad}` : '';
+      fraudDetail = `<span style="color:#f87171; font-weight:700; font-size:11px;">🚨 POSIBLE_FRAUDE (Ráfaga &lt;3s)${sevLabel}</span>`;
+    } else if (isRej) {
+      fraudDetail = '<span style="color:#f87171; font-size:11px;">Usuario Bloqueado</span>';
+    }
+
+    return `
+      <tr style="${rowStyle}">
+        <td style="font-family: var(--font-mono); font-weight: 700; color: #38bdf8;">${t.idTxn}</td>
+        <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); white-space:nowrap;">
+          ${t.fecha}
+        </td>
+        <td>
+          <div style="font-weight: 700;">${t.email}</div>
+        </td>
+        <td style="font-family: var(--font-mono); font-weight: 700;">
+          $ ${parseFloat(t.valor).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+        </td>
+        <td><span style="font-size:12px; color:var(--text-secondary);">${t.metodo_pago}</span></td>
+        <td>${statusBadge}</td>
+        <td>${fraudDetail}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function initRecentTxnFilter() {
+  const btnAll = document.getElementById('btn-filter-all-txns');
+  const btnFraud = document.getElementById('btn-filter-fraud-txns');
+  if (btnAll && btnFraud) {
+    btnAll.addEventListener('click', () => {
+      recentTxnFilter = 'all';
+      btnAll.classList.add('active');
+      btnFraud.classList.remove('active');
+      renderRecentTransactionsTable();
+    });
+    btnFraud.addEventListener('click', () => {
+      recentTxnFilter = 'fraud_only';
+      btnFraud.classList.add('active');
+      btnAll.classList.remove('active');
+      renderRecentTransactionsTable();
+    });
+  }
+}
+
+// Inicialización global
+document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  initPeriodSelector();
+  initUserSearch();
+  initRecentTxnFilter();
+  checkSystemHealth();
+  fetchDashboardStats('hoy');
   loadUsersHistory();
+  loadRecentTransactions();
 
   // Actualizar salud cada 30 segundos
   setInterval(checkSystemHealth, 30000);
@@ -386,5 +497,8 @@ document.addEventListener('DOMContentLoaded', () => {
 window.refreshDashboard = () => {
   fetchDashboardStats(currentPeriod);
   loadUsersHistory();
+  loadRecentTransactions();
 };
 window.loadUsersHistory = loadUsersHistory;
+window.loadRecentTransactions = loadRecentTransactions;
+
