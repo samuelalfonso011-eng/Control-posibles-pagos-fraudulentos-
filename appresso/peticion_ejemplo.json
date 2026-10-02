@@ -1,0 +1,8 @@
+{
+  "idTxn": "TXN-EVAL-001",
+  "user": "profesor@universidad.edu.co",
+  "date": "2026-10-02T15:22:35.589",
+  "value": 150000.00,
+  "paymentMethod": "Tarjeta",
+  "hash": "b86dc14786d5abd26be88d5660112ae1c27427b2a5f1083e141ac3b03280d376"
+}
