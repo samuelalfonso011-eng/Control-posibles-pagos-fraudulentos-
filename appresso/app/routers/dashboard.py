@@ -117,6 +117,12 @@ def get_directory(
         return {"success": True, "periodo": periodo, "users": users}
     except Exception as exc:
         logger.error("Error al obtener directorio de usuarios: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"success": False, "error": {"code": "INTERNAL_ERROR", "message": str(exc)}},
+        )
+
+
 @router.get(
     "/recent-transactions",
     summary="Obtener transacciones mas recientes y registro de intentos de fraude",
@@ -135,5 +141,94 @@ def get_recent(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"success": False, "error": {"code": "INTERNAL_ERROR", "message": str(exc)}},
         )
+
+
+@router.post(
+    "/limpiar-tabla",
+    summary="Limpiar transacciones, anomalías y datos de prueba del sistema",
+)
+def limpiar_tabla(
+    scope: Literal["todo", "pruebas", "seed"] = Query(
+        default="todo",
+        description="Alcance: 'todo' (deja la tabla en 0 para evaluación), 'pruebas' (solo ataques/bots), 'seed' (re-poblar demo)"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Limpia transacciones, anomalías y resetea las ventanas en memoria para dejar el sistema listo."""
+    from app.detector import detector
+    from app.models import Anomalia, Transaccion, Usuario
+
+    try:
+        if scope == "todo":
+            db.query(Anomalia).delete()
+            db.query(Transaccion).delete()
+            db.query(Usuario).filter(
+                (Usuario.email.like("%atacante%")) |
+                (Usuario.email.like("%profesor%")) |
+                (Usuario.email.like("%fraude.masivo%")) |
+                (Usuario.email.like("%comprador.movil%")) |
+                (Usuario.email.like("%cliente.bogota%")) |
+                (Usuario.email.like("%usuario.vip%"))
+            ).delete(synchronize_session=False)
+            db.commit()
+            detector._windows.clear()
+            return {
+                "success": True,
+                "scope": "todo",
+                "message": "Tablas limpiadas completamente (0 transacciones, 0 anomalías). Listo para evaluación.",
+            }
+
+        elif scope == "pruebas":
+            test_txns = db.query(Transaccion).filter(
+                (Transaccion.id_txn.like("ATK-%")) |
+                (Transaccion.id_txn.like("FRAUD-%")) |
+                (Transaccion.id_txn.like("TXN-BATCH%")) |
+                (Transaccion.id_txn.like("PROF-%")) |
+                (Transaccion.id_txn.like("TEST-%")) |
+                (Transaccion.id_txn.like("PRIME-%")) |
+                (Transaccion.id_txn.like("VAL-%"))
+            ).all()
+            test_ids = [t.id for t in test_txns]
+            if test_ids:
+                db.query(Anomalia).filter(Anomalia.transaccion_id.in_(test_ids)).delete(synchronize_session=False)
+                db.query(Transaccion).filter(Transaccion.id.in_(test_ids)).delete(synchronize_session=False)
+
+            db.query(Usuario).filter(
+                (Usuario.email.like("%atacante%")) |
+                (Usuario.email.like("%profesor%")) |
+                (Usuario.email.like("%fraude.masivo%")) |
+                (Usuario.email.like("%comprador.movil%")) |
+                (Usuario.email.like("%cliente.bogota%")) |
+                (Usuario.email.like("%usuario.vip%"))
+            ).delete(synchronize_session=False)
+            db.commit()
+            detector._windows.clear()
+            return {
+                "success": True,
+                "scope": "pruebas",
+                "message": "Transacciones de prueba y atacantes eliminados. Datos base conservados.",
+            }
+
+        elif scope == "seed":
+            from seed import run_seed
+            db.query(Anomalia).delete()
+            db.query(Transaccion).delete()
+            db.commit()
+            detector._windows.clear()
+            run_seed()
+            return {
+                "success": True,
+                "scope": "seed",
+                "message": "Base de datos restablecida con datos sintéticos estándar.",
+            }
+
+    except Exception as exc:
+        db.rollback()
+        logger.error("Error al limpiar tablas: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"success": False, "error": {"code": "CLEANUP_FAILED", "message": str(exc)}},
+        )
+
 
 
